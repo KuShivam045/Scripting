@@ -1,0 +1,2 @@
+# Load Monitering
+## For the Load Monitering of system or the Server  we will run the Python file which is going to moniter the System Performance such as CPU Usage, Memory Usage and Disk Usage. If the uses exceed the threshold of its then it is going to write the logs.  
