@@ -25,7 +25,7 @@ def list_blobs_flat(connection_string, container_name):
 #         file.write(download_stream.readall())
 
 
-connection_string = "DefaultEndpointsProtocol=https;AccountName=nothing;AccountKey=BSDKJVNKNJXCVKBJlksbjvJLKBHFJLVHLKbkvBJNlkbjvLKbvkB;EndpointSuffix=core.windows.net"
+connection_string = "DefaultEndpointsProtocol=https;AccountName=nothing;AccountKey=BSDKJgfjhfgkdfhafdsNlkbjvLKbvkB;EndpointSuffix=core.windows.net"
 container_name = "test-donwloader"
 # blob_name = "test.py"
 # blob_name = "my-sql-connector.zip"

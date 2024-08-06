@@ -13,7 +13,7 @@ def upload_blob_file(connection_string, container_name: str, upload_file_path,bl
 
 
 
-connection_string = "DefaultEndpointsProtocol=https;AccountName=wattson01;AccountKey=vgdscsdjcbsdbhcjasbhjkfbhasdjbhasdjbfhlsflshbdfljshdfglghlj==;EndpointSuffix=core.windows.net"
+connection_string = "DefaultEndpointsProtocol=https;AccountName=wattson01;AccountKey=vgdscsdjcbsdbhcjfyjtfytfjfhasdjbhasdjbfhlsflshbdfljshdfglghlj==;EndpointSuffix=core.windows.net"
 container_name = "wattson-update"
 blob_name = sys.argv[1]
 print("3656546465146=======================",blob_name)
