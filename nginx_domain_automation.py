@@ -28,11 +28,21 @@ def create_file_in_directory(domain_name,filename):
             return f"Directory '{directory}' does not exist."
         file_path = os.path.join(directory,filename)
         print(domain_name, "1111111111111111")
-        content =f'''<VirtualHost *:80>
-    ServerName {domain_name}
-    ServerAlias www.{domain_name}
-    Redirect permanent / http://www.{domain_name}/
-</VirtualHost>'''
+        content =f'''
+server {
+    listen 80;
+    server_name {domain_name} www.{domain_name};
+    root /var/www/html/{domain_name};
+
+    index index.html index.htm index.php;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+    access_log /var/log/nginx/{domain_name}_access.log;
+    error_log /var/log/nginx/{domain_name}_error.log;
+}
+'''
 
         # Use sudo to write the file
         command = f'echo "{content}" | sudo tee {file_path}'

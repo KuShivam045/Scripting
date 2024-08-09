@@ -29,20 +29,19 @@ def create_file_in_directory(domain_name,filename):
         file_path = os.path.join(directory,filename)
         print(domain_name, "1111111111111111")
         content =f'''
-server {
-    listen 80;
-    server_name {domain_name} www.{domain_name};
-    root /var/www/html/{domain_name};
+<VirtualHost *:80>
+    ServerAdmin webmaster@{domain_name}
+    ServerName {domain_name}
+    ServerAlias {domain_name}
+    DocumentRoot /var/www/html/{domain_name}
 
-    index index.html index.htm index.php;
+    <Directory /var/www/html/{domain_name}>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
 
-    location / {
-        try_files $uri $uri/ =404;
-    }
-
-    access_log /var/log/nginx/{domain_name}_access.log;
-    error_log /var/log/nginx/{domain_name}_error.log;
-}
+</VirtualHost>
 '''
 
         # Use sudo to write the file
