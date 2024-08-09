@@ -1,11 +1,5 @@
 #!/bin/bash
 
-# Ensure the script is run with sudo
-if [ "$EUID" -ne 0 ]
-then echo "Please run as root"
-     exit
-fi
-
 # Prompt for domain name
 read -p "Enter the domain name: " DOMAIN
 
@@ -13,7 +7,7 @@ read -p "Enter the domain name: " DOMAIN
 CONFIG_FILE="/etc/apache2/sites-available/$DOMAIN.conf"
 
 # Create the configuration file
-cat <<EOL > $CONFIG_FILE
+sudo cat <<EOL > $CONFIG_FILE
 <VirtualHost *:80>
     ServerAdmin webmaster@$DOMAIN
     ServerName $DOMAIN
@@ -25,19 +19,23 @@ cat <<EOL > $CONFIG_FILE
 EOL
 
 # Create the document root directory
-mkdir -p /var/www/$DOMAIN
+sudo mkdir -p /var/www/$DOMAIN
 
 # Set permissions (assuming www-data is the user running Apache)
-chown -R www-data:www-data /var/www/$DOMAIN
-chmod -R 755 /var/www/$DOMAIN
+sudo chown -R www-data:www-data /var/www/$DOMAIN
+sudo chmod -R 755 /var/www/$DOMAIN
+sudo cp /var/www/html/index.html /var/www/$DOMAIN/
 
 # Enable the site by creating a symbolic link
-ln -s $CONFIG_FILE /etc/apache2/sites-enabled/
+sudo ln -s $CONFIG_FILE /etc/apache2/sites-enabled/
 
 # Test the configuration for syntax errors
-apache2ctl configtest
+sudo apache2ctl configtest
 
 # Reload Apache to apply the changes
-systemctl reload apache2
+sudo systemctl reload apache2
+
+# Obtain SSL certificate using Certbot
+sudo certbot --apache -d $DOMAIN
 
 echo "Configuration for $DOMAIN created and enabled."
