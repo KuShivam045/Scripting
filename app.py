@@ -1,4 +1,4 @@
-import bcrypt
+# import bcrypt
 import os
 import subprocess
 from flask import Flask, request, jsonify
@@ -12,10 +12,10 @@ def list_files():
     try:
         files = os.listdir(directory)
         return jsonify(files)
-    
+
     except FileNotFoundError:
         return f"Directory '{directory}' not found."
-    
+
     except PermissionError:
         return f"Permission denied to access '{directory}'"
 
@@ -32,36 +32,34 @@ def list_files_in_directory(domain_name):
     except Exception as e:
         return {"error": str(e)}
 
-def create_htpasswd(username, password, htpasswd_file):
-    
+# def create_htpasswd(username, password, htpasswd_file):
+
 # Hash the password using bcrypt
-    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    # hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    # subprocess.run(['sudo','bash', '-c', f'echo "{username}:{hashed_password }" >> {htpasswd_file} "'])
 
-    print("=============",hashed_password)
-    subprocess.run(['sudo', 'bash', '-c', f'echo "{username}:{hashed_password}" >> {htpasswd_file}'])
 
-    
 
 def create_file_in_directory(domain_name, directory_auth, url_locations, url_locations_auth, username, password):
     directory = "/etc/apache2/sites-available"
-    event_dir = f"/etc/apache2/sites-available/events/{domain_name}/"
+    event_dir = f"/etc/apache2/sites-available/events/{domain_name}"
     htpasswd_file = f"/etc/apache2/sites-available/events/{domain_name}/.htpasswdd"
     subprocess.run(['sudo', 'mkdir', '-p', event_dir], check=True)
-    
     try:
+        print(f"========================")
         # Generate directory configuration
         if directory_auth:
-            create_htpasswd(username, password,htpasswd_file)
+            # create_htpasswd(username, password,htpasswd_file)
             dir_config_content = f"""
 <Directory /var/www/html/{domain_name}>
-
-    AuthType Basic
-    AuthName 'Restricted Area'
-    AuthUserFile {event_dir}/.htpasswd
-    Require valid-user
     Options Indexes FollowSymLinks
     AllowOverride All
     Require all granted
+
+    AuthType Basic
+    AuthName "Restricted Area"
+    AuthUserFile {event_dir}/.htpasswd
+    Require valid-user
 </Directory>"""
         else:
             dir_config_content = f"""
@@ -78,7 +76,7 @@ def create_file_in_directory(domain_name, directory_auth, url_locations, url_loc
         location_configs = []
         for location, auth in zip(url_locations, url_locations_auth):
             if auth:
-                create_htpasswd(username, password,htpasswd_file)
+                # create_htpasswd(username, password,htpasswd_file)
                 location_config = f"""
 <Location {location}>
     AuthType Basic
@@ -97,6 +95,8 @@ def create_file_in_directory(domain_name, directory_auth, url_locations, url_loc
         file_path = os.path.join(event_dir, "location.conf")
         subprocess.run(['sudo', 'bash', '-c', f'echo "{combined_config}" > {file_path}'], check=True)
 
+        print(f"*************************")
+        
         # Generate virtual host configuration
         if not os.path.exists(directory):
             return f"Directory '{directory}' does not exist."
@@ -116,8 +116,8 @@ def create_file_in_directory(domain_name, directory_auth, url_locations, url_loc
     Include {event_dir}/location.conf
 
     # Logging configurations
-    ErrorLog {event_dir}/error.log
-    CustomLog {event_dir}/access.log combined
+    ErrorLog {event_dir}/{domain_name}_error.log
+    CustomLog {event_dir}/{domain_name}_access.log combined
 </VirtualHost>
 '''
         command = f'echo "{content}" | sudo tee {file_path}'
@@ -156,7 +156,6 @@ def create_file_in_directory(domain_name, directory_auth, url_locations, url_loc
 @app.route('/create', methods=['POST'])
 def create_file():
     data = request.json
-    
 
     domain_name = data.get('domain_name')
     directory_auth = data.get('directoryAuth')
@@ -175,25 +174,27 @@ def create_file():
     if not isinstance(url_locations_auth, list) or len(url_locations_auth) != len(url_locations):
         return jsonify({"error": "URL location authorization must be a list with the same length as URL locations."}), 400
 
-    if list_files_in_directory(domain_name) is True:
-        return jsonify({"message": "Domain already registered, Please go manual"})
 
     # If directoryAuth is true, ask for username and password
     username = None
     password = None
-    
     if directory_auth or url_locations_auth:
         username = data.get('username')
         password = data.get('password')
-
+        print(f"{username}===={password}")
         # Validate username and password
         if not username or not password:
             return jsonify({"error": "Username and password are required for directory authorization."}), 400
 
-    
-    # Proceed with file creation
-    result = create_file_in_directory(domain_name, directory_auth, url_locations, url_locations_auth, username, password)
-    return jsonify({"message": result})
+    print(22222222222)
+    if list_files_in_directory(domain_name) is True:
+        return jsonify({"message": "Domain already registered, Please go manual"})
+    # print(111111111111111)
+    else:
+        # Proceed with file creation
+        result = create_file_in_directory(domain_name, directory_auth, url_locations, url_locations_auth, username, password)
+        return jsonify({"message": result})
+
 
 
 if __name__ == '__main__':

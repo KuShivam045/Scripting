@@ -90,17 +90,64 @@ def create_file_in_directory(domain_name,filename):
     except Exception as e:
         return str(e)
 
+# @app.route('/create', methods=['POST'])
+# def create_file():
+#     data = request.json
+#     domain_name = data.get('domain_name', '.')
+#     filename = data.get('filename')
+#     directoryAuth = data.get('directoryAuth', False)
+#     url_location = data.get('url_location')
+#     url_location_Auth = data.get('url_locationAuth', False)
+#     custom_message = data.get('custom_message', '')
+
+#     if not filename:
+#         return jsonify({"error": "Filename is required."}), 400
+
+#     # You can now use the additional input values in your logic
+#     result = create_file_in_directory(domain_name, filename,directoryAuth, url_location,url_location_Auth, custom_message)
+    
+#     print(domain_name, filename,directoryAuth, url_location,url_location_Auth, custom_message)
+#     return jsonify({"message": result})
+
 @app.route('/create', methods=['POST'])
 def create_file():
     data = request.json
-    domain_name = data.get('domain_name', '.')
+    
+    domain_name = data.get('domain_name')
     filename = data.get('filename')
+    directoryAuth = data.get('directoryAuth')
+    url_locations = data.get('url_locations')
+    url_locations_Auth = data.get('url_locations_Auth')
+    custom_message = data.get('custom_message')
 
+    # Check if all required fields are present
+    if not domain_name:
+        return jsonify({"error": "Domain name is required."}), 400
+    
     if not filename:
-        return jsonify({"error": "Filename is required."}),400
+        return jsonify({"error": "Filename is required."}), 400
+    
+    if directoryAuth is None:
+        return jsonify({"error": "Directory authorization (directoryAuth) is required."}), 400
+    
+    if not url_locations:
+        return jsonify({"error": "At least one URL location is required."}), 400
+    
+    if not isinstance(url_locations, list) or not all(isinstance(loc, str) for loc in url_locations):
+        return jsonify({"error": "URL locations must be a list of strings."}), 400
+    
+    if not isinstance(url_locations_Auth, list) or len(url_locations_Auth) != len(url_locations):
+        return jsonify({"error": "URL location authorization must be a list with the same length as URL locations."}), 400
+    
+    if not custom_message:
+        return jsonify({"error": "Custom message is required."}), 400
 
-    result = create_file_in_directory(domain_name,filename)
+    # Proceed with your logic using the input values
+    result = create_file_in_directory(domain_name, filename, directoryAuth, url_locations, url_locations_Auth, custom_message)
+  
     return jsonify({"message": result})
+
+
 
 if __name__=='__main__':
     app.run('0.0.0.0', port=8000, debug=True)
