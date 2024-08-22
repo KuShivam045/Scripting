@@ -26,27 +26,35 @@ def list_files_in_directory(domain_name):
         files = os.listdir(directory)
 
         for file in files:
-            if file == f"{domain_name}.conf":
+            if file == domain_name:
                 return True
         return False
     except Exception as e:
         return {"error": str(e)}
 
 def create_htpasswd(username, password, htpasswd_file):
+        # Check if the file exists
+    file_exists = os.path.isfile(htpasswd_file)
     
-# Hash the password using bcrypt
-    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
-    print("=============",hashed_password)
-    subprocess.run(['sudo', 'bash', '-c', f'echo "{username}:{hashed_password}" >> {htpasswd_file}'])
-
+    # Construct the command with or without the -c flag
+    if file_exists:
+        command = ['sudo', 'htpasswd', '-b', htpasswd_file, username, password]
+    else:
+        command = ['sudo', 'htpasswd', '-c', '-b', htpasswd_file, username, password]
     
+    result = subprocess.run(command, capture_output=True, text=True)
+    
+    if result.returncode != 0:
+        print(f"Error: {result.stderr}")
+    else:
+        print(f"Successfully created/modified .htpasswd entry for {username}")
+
 
 def create_file_in_directory(domain_name, directory_auth, url_locations, url_locations_auth, username, password):
-    directory = "/etc/apache2/sites-available"
-    event_dir = f"/etc/apache2/sites-available/events/{domain_name}/"
-    htpasswd_file = f"/etc/apache2/sites-available/events/{domain_name}/.htpasswdd"
-    subprocess.run(['sudo', 'mkdir', '-p', event_dir], check=True)
+    directory = f"/etc/apache2/sites-available/{domain_name}"
+    # event_dir = f"/etc/apache2/sites-available/{domain_name}/"
+    htpasswd_file = f"/etc/apache2/sites-available/{domain_name}/.htpasswd"
+    subprocess.run(['sudo', 'mkdir', '-p', directory], check=True)
     
     try:
         # Generate directory configuration
@@ -57,11 +65,8 @@ def create_file_in_directory(domain_name, directory_auth, url_locations, url_loc
 
     AuthType Basic
     AuthName 'Restricted Area'
-    AuthUserFile {event_dir}/.htpasswd
+    AuthUserFile {directory}/.htpasswd
     Require valid-user
-    Options Indexes FollowSymLinks
-    AllowOverride All
-    Require all granted
 </Directory>"""
         else:
             dir_config_content = f"""
@@ -71,7 +76,7 @@ def create_file_in_directory(domain_name, directory_auth, url_locations, url_loc
     Require all granted
 </Directory>"""
 
-        file_path = os.path.join(event_dir, "directory.conf")
+        file_path = os.path.join(directory, "directory.conf")
         subprocess.run(['sudo', 'bash', '-c', f'echo "{dir_config_content}" > {file_path}'], check=True)
 
         # Generate location configurations
@@ -83,7 +88,7 @@ def create_file_in_directory(domain_name, directory_auth, url_locations, url_loc
 <Location {location}>
     AuthType Basic
     AuthName 'Restricted Area'
-    AuthUserFile {event_dir}/.htpasswd
+    AuthUserFile {directory}/.htpasswd
     Require valid-user
 </Location>"""
             else:
@@ -94,7 +99,7 @@ def create_file_in_directory(domain_name, directory_auth, url_locations, url_loc
             location_configs.append(location_config)
 
         combined_config = "\n".join(location_configs)
-        file_path = os.path.join(event_dir, "location.conf")
+        file_path = os.path.join(directory, "location.conf")
         subprocess.run(['sudo', 'bash', '-c', f'echo "{combined_config}" > {file_path}'], check=True)
 
         # Generate virtual host configuration
@@ -110,22 +115,29 @@ def create_file_in_directory(domain_name, directory_auth, url_locations, url_loc
     DocumentRoot /var/www/html/{domain_name}
 
     # Including the custom directory block
-    Include {event_dir}/directory.conf
+    Include {directory}/directory.conf
 
     # Including the custom location blocks
-    Include {event_dir}/location.conf
+    Include {directory}/location.conf
 
     # Logging configurations
-    ErrorLog {event_dir}/error.log
-    CustomLog {event_dir}/access.log combined
+    ErrorLog {directory}/error.log
+    CustomLog {directory}/access.log combined
 </VirtualHost>
 '''
         command = f'echo "{content}" | sudo tee {file_path}'
         subprocess.run(command, shell=True, check=True)
 
-        # Create symbolic link in sites-enabled
-        command = f'sudo ln -s {file_path} /etc/apache2/sites-enabled/{filename}'
+        command = f'sudo mkdir /etc/apache2/sites-enabled/{domain_name}'
         subprocess.run(command, shell=True, check=True)
+
+        # Create symbolic link in sites-enabled
+        files = os.listdir(directory)
+        for i,file in enumerate(files):
+            print(i,"=========",file)
+            command = f'sudo ln -s {directory}/{file} /etc/apache2/sites-enabled/{domain_name}/{file}'
+            subprocess.run(command, shell=True, check=True)
+
 
         # Create web root directory and set permissions
         command = f'sudo mkdir /var/www/html/{domain_name}'
@@ -143,6 +155,20 @@ def create_file_in_directory(domain_name, directory_auth, url_locations, url_loc
         subprocess.run('sudo apache2ctl configtest', shell=True, check=True)
         subprocess.run('sudo systemctl reload apache2', shell=True, check=True)
 
+        subprocess.run(f'curl http://{domain_name}', shell=True, check=True)
+        subprocess.run(f'sudo ln -s {directory}/access.log /etc/apache2/sites-enabled/{domain_name}/access.log', shell=True, check=True)
+        subprocess.run(f'sudo ln -s {directory}/error.log /etc/apache2/sites-enabled/{domain_name}/error.log', shell=True, check=True)
+
+        # Obtain SSL certificate using Certbot
+        command = f'sudo certbot --apache -d {domain_name}'
+        subprocess.run(command, shell=True, check=True)
+
+        command = f'sudo mv /etc/apache2/sites-enabled/{domain_name}-le-ssl.conf /etc/apache2/sites-enabled/{domain_name}/'
+        subprocess.run(command, shell=True, check=True)
+
+        # Test the Apache configuration
+        subprocess.run('sudo apache2ctl configtest', shell=True, check=True)
+        subprocess.run('sudo systemctl reload apache2', shell=True, check=True)
         return (f"File {filename} created successfully in {directory},\n"
                 f"symbolic link created in /etc/apache2/sites-enabled,\n"
                 f"permissions set, index.html copied to /var/www/html/{domain_name},\n"
