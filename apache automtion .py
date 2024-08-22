@@ -77,7 +77,10 @@ def create_file_in_directory(domain_name, directory_auth, url_locations, url_loc
 </Directory>"""
 
         file_path = os.path.join(directory, "directory.conf")
-        subprocess.run(['sudo', 'bash', '-c', f'echo "{dir_config_content}" > {file_path}'], check=True)
+        try:
+            subprocess.run(['sudo', 'bash', '-c', f'echo "{dir_config_content}" > {file_path}'], check=True)
+        except subprocess.CalledProcessError as e:
+            return f"Failed to create directory configuration: {e}"
 
         # Generate location configurations
         location_configs = []
@@ -100,7 +103,10 @@ def create_file_in_directory(domain_name, directory_auth, url_locations, url_loc
 
         combined_config = "\n".join(location_configs)
         file_path = os.path.join(directory, "location.conf")
-        subprocess.run(['sudo', 'bash', '-c', f'echo "{combined_config}" > {file_path}'], check=True)
+        try:
+            subprocess.run(['sudo', 'bash', '-c', f'echo "{combined_config}" > {file_path}'], check=True) 
+        except subprocess.CalledProcessError as e:
+            return f"Failed to create location configuration: {e}"
 
         # Generate virtual host configuration
         if not os.path.exists(directory):
@@ -126,22 +132,35 @@ def create_file_in_directory(domain_name, directory_auth, url_locations, url_loc
 </VirtualHost>
 '''
         command = f'echo "{content}" | sudo tee {file_path}'
-        subprocess.run(command, shell=True, check=True)
-
-        command = f'sudo mkdir /etc/apache2/sites-enabled/{domain_name}'
-        subprocess.run(command, shell=True, check=True)
+        try:
+            subprocess.run(command, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            return f"Failed to create virtual host configuration: {e}"
 
         # Create symbolic link in sites-enabled
+        try:
+            command = f'sudo mkdir /etc/apache2/sites-enabled/{domain_name}'
+            subprocess.run(command, shell=True, check=True)    
+        except subprocess.CalledProcessError as e:
+            return f"Failed to create sites-enabled directory: {e}"
+
+
         files = os.listdir(directory)
         for i,file in enumerate(files):
             print(i,"=========",file)
             command = f'sudo ln -s {directory}/{file} /etc/apache2/sites-enabled/{domain_name}/{file}'
-            subprocess.run(command, shell=True, check=True)
+            try:
+                subprocess.run(command, shell=True, check=True)
+            except subprocess.CalledProcessError as e:
+                return f"Failed to create symbolic link for file {file}: {e}"
 
 
         # Create web root directory and set permissions
-        command = f'sudo mkdir /var/www/html/{domain_name}'
-        subprocess.run(command, shell=True, check=True)
+        try:
+            command = f'sudo mkdir /var/www/html/{domain_name}'
+            subprocess.run(command, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            return f"Failed to create web root directory: {e}"
 
         permission_commands = [
             f'sudo chown -R www-data:www-data /var/www/html/{domain_name}',
@@ -149,33 +168,59 @@ def create_file_in_directory(domain_name, directory_auth, url_locations, url_loc
             f'sudo cp /var/www/html/index.html /var/www/html/{domain_name}/'
         ]
         for cmd in permission_commands:
-            subprocess.run(cmd, shell=True, check=True)
+            try:
+                subprocess.run(cmd, shell=True, check=True)
+            except subprocess.CalledProcessError as e:
+                return f"Failed to execute permission command '{cmd}': {e}"
 
         # Test the Apache configuration
-        subprocess.run('sudo apache2ctl configtest', shell=True, check=True)
-        subprocess.run('sudo systemctl reload apache2', shell=True, check=True)
+        try:
+            subprocess.run('sudo apache2ctl configtest', shell=True, check=True)
+            subprocess.run('sudo systemctl reload apache2', shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            return f"Apache configuration test or reload failed: {e}"
 
-        subprocess.run(f'curl http://{domain_name}', shell=True, check=True)
-        subprocess.run(f'sudo ln -s {directory}/access.log /etc/apache2/sites-enabled/{domain_name}/access.log', shell=True, check=True)
-        subprocess.run(f'sudo ln -s {directory}/error.log /etc/apache2/sites-enabled/{domain_name}/error.log', shell=True, check=True)
+       # Verify HTTP response
+        try:
+            subprocess.run(f'curl http://{domain_name}', shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            return f"HTTP request failed: {e}"
 
+        # Create symbolic links for logs
+        try:
+            subprocess.run(f'sudo ln -s {directory}/access.log /etc/apache2/sites-enabled/{domain_name}/access.log', shell=True, check=True)
+            subprocess.run(f'sudo ln -s {directory}/error.log /etc/apache2/sites-enabled/{domain_name}/error.log', shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            return f"Failed to create symbolic link for logs: {e}"
+        
         # Obtain SSL certificate using Certbot
-        command = f'sudo certbot --apache -d {domain_name}'
-        subprocess.run(command, shell=True, check=True)
+        try:
+            command = f'sudo certbot --apache -d {domain_name}'
+            subprocess.run(command, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            return f"Certbot failed: {e}"
 
-        command = f'sudo mv /etc/apache2/sites-enabled/{domain_name}-le-ssl.conf /etc/apache2/sites-enabled/{domain_name}/'
-        subprocess.run(command, shell=True, check=True)
 
-        # Test the Apache configuration
-        subprocess.run('sudo apache2ctl configtest', shell=True, check=True)
-        subprocess.run('sudo systemctl reload apache2', shell=True, check=True)
+        # Move SSL configuration
+        try:
+            command = f'sudo mv /etc/apache2/sites-enabled/{domain_name}-le-ssl.conf /etc/apache2/sites-enabled/{domain_name}/'
+            subprocess.run(command, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            return f"Failed to move SSL configuration: {e}"
+
+        # Final configuration test and reload
+        try:
+            subprocess.run('sudo apache2ctl configtest', shell=True, check=True)
+            subprocess.run('sudo systemctl reload apache2', shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            return f"Final Apache configuration test or reload failed: {e}"
+        
         return (f"File {filename} created successfully in {directory},\n"
                 f"symbolic link created in /etc/apache2/sites-enabled,\n"
                 f"permissions set, index.html copied to /var/www/html/{domain_name},\n"
-                f"Apache configuration tested, Apache reloaded.")
+                f"Apache configuration tested, Apache reloaded,\n"
+                f"SSL configured using certbot,\n")
 
-    except subprocess.CalledProcessError:
-        return f"Permission denied to access '{directory}'"
     except Exception as e:
         return str(e)
 
