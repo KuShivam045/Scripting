@@ -95,7 +95,7 @@ def create_file_in_directory(remote_server, domain_name, directory_auth, url_loc
             dir_config_content = dirConf(directory_auth, domain_name)
             print("******************************   ")
         else:
-            dir_config_content = dirConf(directory_auth, directory, domain_name)
+            dir_config_content = dirConf(directory_auth,  domain_name)
 
         file_path = os.path.join(directory, "directory.conf")
         # Escape double quotes inside dir_config_content
