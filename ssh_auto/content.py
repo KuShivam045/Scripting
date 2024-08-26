@@ -2,8 +2,6 @@ def index_html(domain_name):
     txt = f"""
         {domain_name} Configured Successfully!
         Your Apache virtual host is up and running."""
-    
-    print("file created successfully")
     return txt
 
 def dirConf(directory_auth,domain_name):
@@ -16,8 +14,7 @@ AuthName 'Restricted Area'
 AuthUserFile /etc/apache2/sites-available/{domain_name}/.htpasswd
 Require valid-user
 </Directory>
-"""     
-        print("dirConf Executed")
+""" 
         return context
     else:
         context = f"""
@@ -27,7 +24,6 @@ AllowOverride All
 Require all granted
 </Directory>
 """
-        print("dirConf Executed")
         return context
     
 
@@ -42,7 +38,6 @@ AuthUserFile /etc/apache2/sites-available/{domain_name}/.htpasswd
 Require valid-user
 </Location>
 """
-        print("locationConf Executed")
         return context
     else:
         context = f"""
@@ -50,9 +45,7 @@ Require valid-user
 # No authentication required
 </Location>
 """
-        print("locationConf Executed")
         return context
-
 
 def virtualHostConf(directory,domain_name):
     
@@ -74,5 +67,4 @@ ErrorLog {directory}error.log
 CustomLog {directory}access.log combined
 </VirtualHost>
 """
-    print("virtualHostConf Executed")
     return context

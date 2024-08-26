@@ -5,10 +5,8 @@ from flask import Flask, request, jsonify
 from script import list_domain, create_file_in_directory
 app = Flask(__name__)
 
-
-
 def ssh_connect(hostname, port, ssh_user, pem_file_path):
-        # Setup SSH client
+    # Setup SSH client
     ssh_client = paramiko.SSHClient()
     ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     private_key = paramiko.RSAKey.from_private_key_file(pem_file_path)
@@ -52,7 +50,9 @@ def create_file():
     # If directoryAuth is true, ask for username and password
     baseAuthUsername = None
     baseAuthPassword = None
-    
+
+    if isinstance(directory_auth, str):
+        directory_auth = directory_auth.strip().lower() == "true"
     if directory_auth or url_locations_auth:
         baseAuthUsername = request.form['baseAuthUsername']
         baseAuthPassword = request.form['baseAuthPassword']
@@ -60,12 +60,10 @@ def create_file():
         # Validate username and password
         if not baseAuthUsername or not baseAuthPassword:
             return jsonify({"error": "Username and password are required for directory authorization."}), 400
-
-    
+   
     ## Creation SSH Client for remote Access 
     remote_server = ssh_connect(hostname, port, ssh_user, pem_file_path)
-    print(remote_server, "SSH Connection created Successfully")
-
+  
     try:
         if list_domain(remote_server, domain_name):
             return jsonify({"message": "Domain already registered, Please go manual"})
@@ -83,10 +81,6 @@ def create_file():
         if remote_server:
             remote_server.close()
         os.remove(pem_file_path) # Optionally, delete the .pem file after use
-
-
-    return jsonify({"message": "Apache setup completed successfully"}, result), 200
-
 
 if __name__ == '__main__':
     app.run('0.0.0.0', port=8000, debug=True)
