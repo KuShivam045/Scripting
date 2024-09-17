@@ -1,0 +1,34 @@
+name: Deploy to Stating Server
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install SSH client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openssh-client
+
+      - name: Debug Environment Variables
+        run: |
+          echo "SSH_USER=${{ secrets.SSH_USER }}"
+          echo "SSH_HOST=${{ secrets.SSH_HOST }}"
+
+      - name: Deploy to Physical Server
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+        run: |
+          echo "$SSH_PRIVATE_KEY" > physical-server.pem
+          chmod 600 physical-server.pem
+          ssh -i physical-server.pem -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" "sudo bash /var/www/html/SocioproDev/deploy.sh"
